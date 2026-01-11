@@ -5,6 +5,8 @@ import { redirect, notFound } from "next/navigation";
 import Link from "next/link";
 import { ArrowLeft } from "lucide-react";
 import MonitorActions from "./monitor-actions";
+import LatencyChart from "./latency-chart";
+
 
 export default async function MonitorDetails({ params }: { params: Promise<{ id: string }> }) {
   const session = await getServerSession(authOptions);
@@ -54,6 +56,7 @@ export default async function MonitorDetails({ params }: { params: Promise<{ id:
             </div>
         </div>
 
+        <LatencyChart checks={monitor.checks} />
         {/* History Log */}
         <div className="bg-white rounded-lg border shadow-sm overflow-hidden">
             <div className="p-4 border-b bg-gray-50 font-medium">Recent Checks</div>
