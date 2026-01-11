@@ -15,8 +15,8 @@ const MonitorSchema = z.object({
 
 export async function createMonitor(formData: FormData) {
   // 2. Check Authentication
-  const session = await getServerSession(authOptions);
-  if (!session?.user?.id) {
+  const user = session?.user as { id: string } | undefined;
+  if (!user?.id) {
     return { error: "Not authenticated" };
   }
 
