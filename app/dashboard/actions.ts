@@ -1,4 +1,3 @@
-// app/dashboard/actions.ts
 "use server";
 
 import { z } from "zod";
@@ -15,7 +14,11 @@ const MonitorSchema = z.object({
 
 export async function createMonitor(formData: FormData) {
   // 2. Check Authentication
+  const session = await getServerSession(authOptions);
+  
+  // FORCE FIX: Manually tell TypeScript that 'id' exists
   const user = session?.user as { id: string } | undefined;
+
   if (!user?.id) {
     return { error: "Not authenticated" };
   }
@@ -36,7 +39,7 @@ export async function createMonitor(formData: FormData) {
       data: {
         name: validated.data.name,
         url: validated.data.url,
-        userId: session.user.id,
+        userId: user.id,
         status: "UP", // Default status
       },
     });

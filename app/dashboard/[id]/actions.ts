@@ -1,4 +1,3 @@
-// app/dashboard/[id]/actions.ts
 "use server";
 
 import { getServerSession } from "next-auth";
@@ -12,10 +11,13 @@ const resend = new Resend(process.env.RESEND_API_KEY);
 
 export async function triggerCheck(monitorId: string, url: string) {
   const session = await getServerSession(authOptions);
+  
+  // FORCE FIX: Manually tell TypeScript that 'id' exists
   const user = session?.user as { id: string; email?: string } | undefined;
+
   if (!user?.id) return { error: "Unauthorized" };
 
-  // 1. Get the current status BEFORE checking (to see if it changed)
+  // 1. Get the current status BEFORE checking
   const monitor = await prisma.monitor.findUnique({
     where: { id: monitorId },
     select: { status: true, user: { select: { email: true } } }
@@ -58,12 +60,12 @@ export async function triggerCheck(monitorId: string, url: string) {
   });
 
   // 5. SEND ALERT? (Only if status changed from UP -> DOWN)
-  if (monitor.status === "UP" && newStatus === "DOWN") {
+  if (monitor.status === "UP" && newStatus === "DOWN" && monitor.user.email) {
     console.log("⚠️ Site went down! Sending email...");
     
     await resend.emails.send({
-      from: 'onboarding@resend.dev', // Default free sender
-      to: monitor.user.email!,       // Your email
+      from: 'onboarding@resend.dev', 
+      to: monitor.user.email,       
       subject: `🔴 Alert: ${url} is DOWN`,
       html: `
         <p>Your monitor for <strong>${url}</strong> just went down.</p>
@@ -79,13 +81,14 @@ export async function triggerCheck(monitorId: string, url: string) {
 export async function deleteMonitor(monitorId: string) {
   const session = await getServerSession(authOptions);
   
-  // 1. Safe Check: Ensure both session AND user AND id exist
-  const user = session?.user as { id: string; email?: string } | undefined;
+  // FORCE FIX: Manually tell TypeScript that 'id' exists
+  const user = session?.user as { id: string } | undefined;
+  
   if (!user?.id) return { error: "Unauthorized" };
 
   // Verify ownership before deleting
   const monitor = await prisma.monitor.findFirst({
-    where: { id: monitorId, userId: session.user.id }
+    where: { id: monitorId, userId: user.id }
   });
 
   if (!monitor) return { error: "Not found" };
