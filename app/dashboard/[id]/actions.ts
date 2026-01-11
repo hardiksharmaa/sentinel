@@ -12,7 +12,7 @@ const resend = new Resend(process.env.RESEND_API_KEY);
 
 export async function triggerCheck(monitorId: string, url: string) {
   const session = await getServerSession(authOptions);
-  if (!session) return { error: "Unauthorized" };
+  if (!session?.user?.id) return { error: "Unauthorized" };
 
   // 1. Get the current status BEFORE checking (to see if it changed)
   const monitor = await prisma.monitor.findUnique({
@@ -77,7 +77,11 @@ export async function triggerCheck(monitorId: string, url: string) {
 
 export async function deleteMonitor(monitorId: string) {
   const session = await getServerSession(authOptions);
-  if (!session) return { error: "Unauthorized" };
+  
+  // 1. Safe Check: Ensure both session AND user AND id exist
+  if (!session?.user?.id) {
+      return { error: "Unauthorized" };
+  }
 
   // Verify ownership before deleting
   const monitor = await prisma.monitor.findFirst({
