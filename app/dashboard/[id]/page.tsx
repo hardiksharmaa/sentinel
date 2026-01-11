@@ -6,7 +6,7 @@ import Link from "next/link";
 import { ArrowLeft } from "lucide-react";
 import MonitorActions from "./monitor-actions";
 import LatencyChart from "./latency-chart";
-
+import DateDisplay from "./date-display";
 
 export default async function MonitorDetails({ params }: { params: Promise<{ id: string }> }) {
   const session = await getServerSession(authOptions);
@@ -81,7 +81,7 @@ export default async function MonitorDetails({ params }: { params: Promise<{ id:
                                 </td>
                                 <td className="px-4 py-3 font-mono">{check.latency}ms</td>
                                 <td className="px-4 py-3 text-gray-500">
-                                    {new Date(check.createdAt).toLocaleString()}
+                                    <DateDisplay date={check.createdAt} />
                                 </td>
                             </tr>
                         ))}
