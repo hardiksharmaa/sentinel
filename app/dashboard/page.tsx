@@ -4,34 +4,43 @@ import { redirect } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import MonitorForm from "./monitor-form";
 import Link from "next/link";
-import { Activity} from "lucide-react";
+import { Activity } from "lucide-react";
 import UserDropdown from "./user-dropdown";
 
-
 export default async function Dashboard() {
-  // 1. Secure the Page: Check if user is logged in
+  // 1. Secure the Page
   const session = await getServerSession(authOptions);
 
-  if (!session) {
-    redirect("/api/auth/signin"); // Kick them out if not logged in
+  if (!session?.user?.id) {
+    redirect("/login"); 
   }
 
-  // 2. Fetch the User's Monitors from DB
+  // 2. Fetch Fresh User Data (Fixes the name update issue)
+  const freshUser = await prisma.user.findUnique({
+    where: { id: session.user.id }
+  });
+
+  // If user is deleted but session remains, kick them out
+  if (!freshUser) redirect("/login");
+
+  // 3. Fetch the User's Monitors
   const monitors = await prisma.monitor.findMany({
     where: { userId: session.user.id },
     orderBy: { createdAt: "desc" },
-    include: { checks: { take: 10, orderBy: { createdAt: "desc" } } } // Get last 10 checks for graphs
+    include: { checks: { take: 10, orderBy: { createdAt: "desc" } } } 
   });
 
   return (
     <div className="min-h-screen bg-gray-50">
       {/* Navbar */}
-      <nav className="bg-white border-b border-gray-200 px-6 py-4 flex justify-between items-center">
-        <div className="flex items-center gap-2 font-bold text-xl tracking-tight text-blue-600">
+      <nav className="bg-white border-b border-gray-200 px-6 py-4 flex justify-between items-center sticky top-0 z-40">
+        <Link href="/" className="flex items-center gap-2 font-bold text-xl tracking-tight text-blue-600 hover:opacity-80 transition">
             <Activity size={24} />
             Sentinel
-          </div>
-        <UserDropdown user={session.user} />
+        </Link>
+        
+        {/* Pass the FRESH user from DB, not the stale session */}
+        <UserDropdown user={freshUser} />
       </nav>
 
       {/* Main Content */}
