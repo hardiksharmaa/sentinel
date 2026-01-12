@@ -4,6 +4,7 @@ import { redirect } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import MonitorForm from "./monitor-form";
 import Link from "next/link";
+import { Activity} from "lucide-react";
 
 export default async function Dashboard() {
   // 1. Secure the Page: Check if user is logged in
@@ -24,7 +25,10 @@ export default async function Dashboard() {
     <div className="min-h-screen bg-gray-50">
       {/* Navbar */}
       <nav className="bg-white border-b border-gray-200 px-6 py-4 flex justify-between items-center">
-        <div className="font-bold text-xl tracking-tight text-blue-600">Sentinel</div>
+        <div className="flex items-center gap-2 font-bold text-xl tracking-tight text-blue-600">
+            <Activity size={24} />
+            Sentinel
+          </div>
         <div className="flex items-center gap-4">
             <span className="text-sm text-gray-600">{session.user?.name}</span>
             {/* Simple User Avatar */}
