@@ -42,8 +42,9 @@ export async function POST(req: Request) {
         stripeSubscriptionId: subscription.id,
         stripeCustomerId: subscription.customer as string,
         stripePriceId: subscription.items.data[0].price.id,
+        // FIX: Cast subscription to 'any' to satisfy TypeScript
         stripeCurrentPeriodEnd: new Date(
-          subscription.current_period_end * 1000
+          (subscription as any).current_period_end * 1000
         ),
       },
     });
