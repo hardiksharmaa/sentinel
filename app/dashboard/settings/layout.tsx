@@ -2,8 +2,8 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { redirect } from "next/navigation";
 import Link from "next/link";
-import { User, CreditCard, Lock, Activity, ArrowLeft } from "lucide-react";
-import UserDropdown from "../user-dropdown"; 
+import { User, CreditCard, Lock, ArrowLeft } from "lucide-react";
+import Navbar from "@/components/navbar"; // <--- Updated import
 import { prisma } from "@/lib/prisma";
 
 export default async function SettingsLayout({
@@ -14,13 +14,10 @@ export default async function SettingsLayout({
   const session = await getServerSession(authOptions);
   if (!session) redirect("/login");
 
-  // 2. FETCH FRESH USER DATA
-  // We don't trust the session.user.name because it might be stale.
   const freshUser = await prisma.user.findUnique({
     where: { id: session.user.id }
   });
 
-  // If user was deleted but session exists, kick them out
   if (!freshUser) redirect("/login");
 
   const menuItems = [
@@ -32,15 +29,8 @@ export default async function SettingsLayout({
   return (
     <div className="min-h-screen bg-gray-50 pb-20">
       
-      {/* Navbar */}
-      <nav className="bg-white border-b border-gray-200 px-6 py-4 flex justify-between items-center sticky top-0 z-40">
-        <Link href="/" className="flex items-center gap-2 font-bold text-xl tracking-tight text-blue-600 hover:opacity-80 transition">
-            <Activity size={24} />
-            Sentinel
-        </Link>
-        {/* 3. PASS THE FRESH USER HERE */}
-        <UserDropdown user={freshUser} /> 
-      </nav>
+      {/* GLOBAL NAVBAR */}
+      <Navbar user={freshUser} /> 
 
       {/* Page Header */}
       <div className="bg-white border-b border-gray-200 px-8 py-6">

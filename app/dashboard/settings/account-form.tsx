@@ -85,14 +85,24 @@ export default function AccountForm({ user }: AccountFormProps) {
               </div>
             </div>
 
+            {/* MODIFIED SECTION: Account Created Date & Time */}
             <div className="space-y-2">
                 <label className="text-sm font-medium text-gray-700">Account Created</label>
-                <div className="text-sm text-gray-900">
-                    {new Date(user.createdAt).toLocaleDateString(undefined, { 
-                        year: 'numeric', 
-                        month: 'long', 
-                        day: 'numeric' 
-                    })}
+                <div className="text-sm text-gray-900 flex items-center gap-2">
+                    <span>
+                      {new Date(user.createdAt).toLocaleDateString(undefined, { 
+                          year: 'numeric', 
+                          month: 'long', 
+                          day: 'numeric' 
+                      })}
+                    </span>
+                    <span className="text-gray-400">•</span>
+                    <span className="text-gray-500">
+                      {new Date(user.createdAt).toLocaleTimeString(undefined, {
+                          hour: '2-digit',
+                          minute: '2-digit'
+                      })}
+                    </span>
                 </div>
             </div>
 

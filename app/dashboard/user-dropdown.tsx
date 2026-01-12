@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef } from "react";
 import { signOut } from "next-auth/react";
-import { LogOut, Settings, CreditCard, User, ChevronDown, Check } from "lucide-react";
+import { LogOut, Settings, CreditCard, ChevronDown, Sparkles } from "lucide-react";
 import Link from "next/link";
 
 interface UserDropdownProps {
@@ -10,12 +10,25 @@ interface UserDropdownProps {
     name?: string | null;
     email?: string | null;
     image?: string | null;
+    stripePriceId?: string | null;
+    stripeCurrentPeriodEnd?: Date | null;
   };
 }
 
 export default function UserDropdown({ user }: UserDropdownProps) {
   const [isOpen, setIsOpen] = useState(false);
+  const [imageError, setImageError] = useState(false); // <--- Track broken images
   const dropdownRef = useRef<HTMLDivElement>(null);
+
+  // Calculate Plan Status
+  const isPro = !!user.stripePriceId && (new Date(user.stripeCurrentPeriodEnd ?? 0).getTime() > Date.now());
+
+  // Determine which image to show
+  // 1. If we have an image AND it hasn't failed -> Use it.
+  // 2. Otherwise -> Use the fallback "Dummy Selfie" (Initials).
+  const avatarSrc = (user.image && !imageError) 
+    ? user.image 
+    : `https://ui-avatars.com/api/?name=${encodeURIComponent(user.name || "User")}&background=random`;
 
   // Close dropdown if clicking outside
   useEffect(() => {
@@ -36,9 +49,10 @@ export default function UserDropdown({ user }: UserDropdownProps) {
         className="flex items-center gap-2 hover:bg-gray-100 p-1.5 rounded-lg transition-colors outline-none focus:ring-2 focus:ring-blue-100"
       >
         <img 
-          src={user.image || `https://ui-avatars.com/api/?name=${user.name}`} 
+          src={avatarSrc} 
           alt="Avatar" 
-          className="w-8 h-8 rounded-full border border-gray-200"
+          onError={() => setImageError(true)} // <--- If load fails, switch to fallback
+          className="w-8 h-8 rounded-full border border-gray-200 object-cover"
         />
         <div className="hidden md:block text-left">
             <p className="text-sm font-medium text-gray-700 leading-none">{user.name}</p>
@@ -51,22 +65,55 @@ export default function UserDropdown({ user }: UserDropdownProps) {
         <div className="absolute right-0 mt-2 w-72 bg-white rounded-xl shadow-lg border border-gray-100 py-2 z-50 animate-in fade-in zoom-in-95 duration-100 origin-top-right">
           
           {/* Section 1: User Info */}
-          <div className="px-4 py-3 border-b border-gray-50">
-            <p className="text-sm font-semibold text-gray-900">{user.name}</p>
-            <p className="text-xs text-gray-500 truncate">{user.email}</p>
+          <div className="px-4 py-3 border-b border-gray-50 flex items-center gap-3">
+             {/* Show larger avatar inside menu too */}
+             <img 
+                src={avatarSrc} 
+                alt="Avatar" 
+                onError={() => setImageError(true)}
+                className="w-10 h-10 rounded-full border border-gray-200 object-cover"
+             />
+             <div className="overflow-hidden">
+                <p className="text-sm font-semibold text-gray-900 truncate">{user.name}</p>
+                <p className="text-xs text-gray-500 truncate">{user.email}</p>
+             </div>
           </div>
 
           {/* Section 2: Plan Selection */}
           <div className="p-2">
-            <div className="bg-gray-50 rounded-lg p-3 mb-2">
+            <div className={`rounded-lg p-3 mb-2 ${isPro ? "bg-purple-50 border border-purple-100" : "bg-gray-50"}`}>
                 <div className="flex items-center justify-between mb-2">
                     <span className="text-xs font-bold text-gray-500 uppercase tracking-wider">Current Plan</span>
-                    <span className="bg-blue-100 text-blue-700 py-0.5 px-2 rounded-full text-[10px] font-bold">FREE</span>
+                    {isPro ? (
+                       <span className="bg-purple-600 text-white py-0.5 px-2 rounded-full text-[10px] font-bold flex items-center gap-1">
+                          <Sparkles size={10} /> PRO
+                       </span>
+                    ) : (
+                       <span className="bg-blue-100 text-blue-700 py-0.5 px-2 rounded-full text-[10px] font-bold">FREE</span>
+                    )}
                 </div>
-                <button className="w-full bg-gray-900 hover:bg-black text-white text-xs font-medium py-2 rounded-md transition-colors flex items-center justify-center gap-2">
-                    <CreditCard size={14} />
-                    Upgrade to Premium
-                </button>
+                
+                {!isPro && (
+                    <Link 
+                        href="/dashboard/settings/billing"
+                        onClick={() => setIsOpen(false)}
+                        className="w-full bg-gray-900 hover:bg-black text-white text-xs font-medium py-2 rounded-md transition-colors flex items-center justify-center gap-2"
+                    >
+                        <CreditCard size={14} />
+                        Upgrade to Premium
+                    </Link>
+                )}
+                
+                {isPro && (
+                    <Link
+                        href="/dashboard/settings/billing"
+                        onClick={() => setIsOpen(false)}
+                        className="w-full bg-white border border-purple-200 text-purple-700 hover:bg-purple-50 text-xs font-medium py-2 rounded-md transition-colors flex items-center justify-center gap-2"
+                    >
+                        <Settings size={14} />
+                        Manage Subscription
+                    </Link>
+                )}
             </div>
           </div>
 

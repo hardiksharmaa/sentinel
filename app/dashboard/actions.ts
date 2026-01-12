@@ -6,49 +6,93 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { revalidatePath } from "next/cache";
 
-// 1. Define the Validation Schema
+// --- EXISTING CREATE FUNCTION ---
 const MonitorSchema = z.object({
   name: z.string().min(1, "Name is required").max(50),
   url: z.string().url("Must be a valid URL (e.g., https://google.com)"),
 });
 
 export async function createMonitor(formData: FormData) {
-  // 2. Check Authentication
   const session = await getServerSession(authOptions);
-  
-  // FORCE FIX: Manually tell TypeScript that 'id' exists
   const user = session?.user as { id: string } | undefined;
+  if (!user?.id) return { error: "Not authenticated" };
 
-  if (!user?.id) {
-    return { error: "Not authenticated" };
-  }
-
-  // 3. Validate Input
   const name = formData.get("name") as string;
   const url = formData.get("url") as string;
   
   const validated = MonitorSchema.safeParse({ name, url });
   
-  if (!validated.success) {
-    return { error: validated.error.format() };
-  }
+  if (!validated.success) return { error: validated.error.format() };
 
-  // 4. Save to Database
   try {
     await prisma.monitor.create({
       data: {
         name: validated.data.name,
         url: validated.data.url,
         userId: user.id,
-        status: "UP", // Default status
+        status: "UP",
       },
     });
-
-    // 5. Refresh the Dashboard (so the new monitor shows up instantly)
     revalidatePath("/dashboard");
     return { success: true };
-
   } catch (error) {
     return { error: "Failed to create monitor" };
   }
+}
+
+// --- NEW FUNCTIONS (Fixes your error) ---
+
+// 1. Trigger Manual Check
+export async function triggerCheck(id: string, url: string) {
+  const session = await getServerSession(authOptions);
+  if (!session) return { error: "Unauthorized" };
+
+  const start = Date.now();
+  let status = "DOWN";
+  let statusCode = 0;
+
+  try {
+    const res = await fetch(url, { 
+        method: "HEAD", 
+        cache: "no-store", 
+        signal: AbortSignal.timeout(5000) 
+    });
+    statusCode = res.status;
+    status = res.ok ? "UP" : "DOWN";
+  } catch (e) {
+    status = "DOWN";
+    statusCode = 0; // 0 indicates connection failure
+  }
+
+  const latency = Date.now() - start;
+
+  // Save to History
+  await prisma.monitorCheck.create({
+    data: { 
+        monitorId: id, 
+        statusCode: statusCode, 
+        latency: latency 
+    }
+  });
+  
+  // Update Current Status
+  await prisma.monitor.update({
+    where: { id },
+    data: { status }
+  });
+
+  revalidatePath(`/dashboard/${id}`);
+}
+
+// 2. Delete Monitor
+export async function deleteMonitor(id: string) {
+  const session = await getServerSession(authOptions);
+  const user = session?.user as { id: string } | undefined;
+  if (!user?.id) return { error: "Unauthorized" };
+
+  await prisma.monitor.delete({
+    where: { id, userId: user.id },
+  });
+
+  revalidatePath("/dashboard");
 }
