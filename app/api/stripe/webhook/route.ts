@@ -29,7 +29,6 @@ export async function POST(req: Request) {
 
     // EVENT: CHECKOUT COMPLETED
     if (event.type === "checkout.session.completed") {
-      // Validate User ID
       if (!session?.metadata?.userId) {
         console.error("❌ Metadata missing User ID. Cannot link subscription.");
         return new NextResponse("User ID is missing in metadata", { status: 400 });
@@ -37,10 +36,21 @@ export async function POST(req: Request) {
 
       console.log(`✅ Payment received for User: ${session.metadata.userId}`);
 
-      // Fetch Subscription Details
+      // Fetch Subscription
       const subscription = await stripe.subscriptions.retrieve(
         session.subscription as string
       );
+
+      // --- ROBUST DATE HANDLING (Fixes your 500 Error) ---
+      // We check if the field exists. If not, default to 30 days from now.
+      let periodEnd = (subscription as any).current_period_end;
+
+      if (!periodEnd) {
+        console.warn("⚠️ Warning: Stripe did not return current_period_end. Defaulting to 30 days.");
+        // Fallback: Current time + 30 days (in seconds)
+        periodEnd = Math.floor(Date.now() / 1000) + 30 * 24 * 60 * 60;
+      }
+      // ---------------------------------------------------
 
       // Update Database
       await prisma.user.update({
@@ -49,10 +59,7 @@ export async function POST(req: Request) {
           stripeSubscriptionId: subscription.id,
           stripeCustomerId: subscription.customer as string,
           stripePriceId: subscription.items.data[0].price.id,
-          // FIX: Use (subscription as any) to bypass the TypeScript error
-          stripeCurrentPeriodEnd: new Date(
-            (subscription as any).current_period_end * 1000
-          ),
+          stripeCurrentPeriodEnd: new Date(periodEnd * 1000), // Now guaranteed to be valid
         },
       });
 
