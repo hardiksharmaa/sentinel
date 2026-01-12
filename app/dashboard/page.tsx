@@ -5,6 +5,8 @@ import { prisma } from "@/lib/prisma";
 import MonitorForm from "./monitor-form";
 import Link from "next/link";
 import { Activity} from "lucide-react";
+import UserDropdown from "./user-dropdown";
+
 
 export default async function Dashboard() {
   // 1. Secure the Page: Check if user is logged in
@@ -29,15 +31,7 @@ export default async function Dashboard() {
             <Activity size={24} />
             Sentinel
           </div>
-        <div className="flex items-center gap-4">
-            <span className="text-sm text-gray-600">{session.user?.name}</span>
-            {/* Simple User Avatar */}
-            <img 
-                src={session.user?.image || ""} 
-                alt="Avatar" 
-                className="w-8 h-8 rounded-full border"
-            />
-        </div>
+        <UserDropdown user={session.user} />
       </nav>
 
       {/* Main Content */}

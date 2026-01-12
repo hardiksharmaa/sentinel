@@ -11,7 +11,7 @@ export default function LoginPage() {
   const handleLogin = async () => {
     setIsLoading(true);
     // This triggers the Google Sign In popup
-    await signIn("google", { callbackUrl: "/dashboard" });
+    await signIn("google", { callbackUrl: "/" });
   };
 
   return (
