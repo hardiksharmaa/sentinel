@@ -26,7 +26,7 @@ export default async function LandingPage() {
               </Link>
             ) : (
               <Link 
-                href="/api/auth/signin" 
+                href="/login" 
                 className="text-sm font-medium text-gray-600 hover:text-black transition"
               >
                 Sign In
