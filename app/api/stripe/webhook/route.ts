@@ -6,13 +6,12 @@ import Stripe from "stripe";
 
 export async function POST(req: Request) {
   const body = await req.text();
-  
-  // FIX: await headers() before using it
   const headerPayload = await headers();
   const signature = headerPayload.get("Stripe-Signature") as string;
 
   let event: Stripe.Event;
 
+  // 1. Verify Signature
   try {
     event = stripe.webhooks.constructEvent(
       body,
@@ -20,46 +19,54 @@ export async function POST(req: Request) {
       process.env.STRIPE_WEBHOOK_SECRET!
     );
   } catch (error: any) {
-    console.error(`Webhook Error: ${error.message}`);
+    console.error(`❌ Webhook Signature Error: ${error.message}`);
     return new NextResponse(`Webhook Error: ${error.message}`, { status: 400 });
   }
 
-  const session = event.data.object as Stripe.Checkout.Session;
+  // 2. Handle Events (Wrapped in Try/Catch to prevent 500 crashes)
+  try {
+    const session = event.data.object as Stripe.Checkout.Session;
 
-  // Handle: Subscription Created / Updated
-  if (event.type === "checkout.session.completed") {
-    const subscription = await stripe.subscriptions.retrieve(
-      session.subscription as string
-    );
+    // EVENT: CHECKOUT COMPLETED
+    if (event.type === "checkout.session.completed") {
+      // Validate User ID
+      if (!session?.metadata?.userId) {
+        console.error("❌ Metadata missing User ID. Cannot link subscription.");
+        return new NextResponse("User ID is missing in metadata", { status: 400 });
+      }
 
-    if (!session?.metadata?.userId) {
-      return new NextResponse("User ID is missing in metadata", { status: 400 });
+      console.log(`✅ Payment received for User: ${session.metadata.userId}`);
+
+      // Fetch Subscription Details
+      const subscription = await stripe.subscriptions.retrieve(
+        session.subscription as string
+      );
+
+      // Update Database
+      await prisma.user.update({
+        where: { id: session.metadata.userId },
+        data: {
+          stripeSubscriptionId: subscription.id,
+          stripeCustomerId: subscription.customer as string,
+          stripePriceId: subscription.items.data[0].price.id,
+          stripeCurrentPeriodEnd: new Date(
+            subscription.current_period_end * 1000
+          ),
+        },
+      });
+
+      console.log(`🎉 User ${session.metadata.userId} upgraded to Pro!`);
     }
 
-    await prisma.user.update({
-      where: { id: session.metadata.userId },
-      data: {
-        stripeSubscriptionId: subscription.id,
-        stripeCustomerId: subscription.customer as string,
-        stripePriceId: subscription.items.data[0].price.id,
-        // FIX: Cast subscription to 'any' to satisfy TypeScript
-        stripeCurrentPeriodEnd: new Date(
-          (subscription as any).current_period_end * 1000
-        ),
-      },
-    });
-  }
+    // EVENT: SUBSCRIPTION DELETED
+    if (event.type === "customer.subscription.deleted") {
+      const subscription = event.data.object as Stripe.Subscription;
+      
+      const user = await prisma.user.findFirst({
+          where: { stripeSubscriptionId: subscription.id }
+      });
 
-  // Handle: Subscription Deleted (User cancelled)
-  if (event.type === "customer.subscription.deleted") {
-    const subscription = event.data.object as Stripe.Subscription;
-    
-    // Find user by subscription ID
-    const user = await prisma.user.findFirst({
-        where: { stripeSubscriptionId: subscription.id }
-    });
-
-    if (user) {
+      if (user) {
         await prisma.user.update({
             where: { id: user.id },
             data: {
@@ -67,8 +74,15 @@ export async function POST(req: Request) {
                 stripeCurrentPeriodEnd: null,
             }
         });
+        console.log(`Subscription deleted for user ${user.id}`);
+      }
     }
-  }
 
-  return new NextResponse(null, { status: 200 });
+    return new NextResponse(null, { status: 200 });
+
+  } catch (error: any) {
+    // 3. Log the REAL error causing the 500
+    console.error("❌ Database/Logic Error inside Webhook:", error);
+    return new NextResponse(`Internal Server Error: ${error.message}`, { status: 500 });
+  }
 }
