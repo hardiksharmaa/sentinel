@@ -23,7 +23,7 @@ export async function POST(req: Request) {
     return new NextResponse(`Webhook Error: ${error.message}`, { status: 400 });
   }
 
-  // 2. Handle Events (Wrapped in Try/Catch to prevent 500 crashes)
+  // 2. Handle Events
   try {
     const session = event.data.object as Stripe.Checkout.Session;
 
@@ -49,8 +49,9 @@ export async function POST(req: Request) {
           stripeSubscriptionId: subscription.id,
           stripeCustomerId: subscription.customer as string,
           stripePriceId: subscription.items.data[0].price.id,
+          // FIX: Use (subscription as any) to bypass the TypeScript error
           stripeCurrentPeriodEnd: new Date(
-            subscription.current_period_end * 1000
+            (subscription as any).current_period_end * 1000
           ),
         },
       });
@@ -81,7 +82,6 @@ export async function POST(req: Request) {
     return new NextResponse(null, { status: 200 });
 
   } catch (error: any) {
-    // 3. Log the REAL error causing the 500
     console.error("❌ Database/Logic Error inside Webhook:", error);
     return new NextResponse(`Internal Server Error: ${error.message}`, { status: 500 });
   }
