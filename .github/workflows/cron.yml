@@ -12,4 +12,4 @@ jobs:
     steps:
       - name: Call Sentinel Cron API
         run: |
-          curl -I -X GET "https://sentinel-ten-gamma.vercel.app/api/cron?secret=${{ secrets.CRON_SECRET }}"
+          curl -I -X GET "https://sentinel-kappa-five.vercel.app/api/cron?secret=${{ secrets.CRON_SECRET }}"

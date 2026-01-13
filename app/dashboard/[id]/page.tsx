@@ -4,8 +4,12 @@ import { prisma } from "@/lib/prisma";
 import { redirect, notFound } from "next/navigation";
 import Link from "next/link";
 import { Activity } from "lucide-react";
-import UserDropdown from "../user-dropdown"; // Go up two levels to find this
+import UserDropdown from "../user-dropdown";
 import MonitorDetailsClient from "@/components/monitor-details-client";
+
+// --- FIX: FORCE DYNAMIC RENDERING ---
+// This tells Next.js: "Never cache this page. Fetch fresh DB data on every reload."
+export const dynamic = "force-dynamic"; 
 
 export default async function MonitorDetailsPage({ 
   params 
@@ -17,7 +21,7 @@ export default async function MonitorDetailsPage({
 
   const { id } = await params;
 
-  // 1. Fetch Fresh User (for Navbar)
+  // 1. Fetch Fresh User
   const user = await prisma.user.findUnique({
     where: { id: session.user.id }
   });
@@ -33,7 +37,7 @@ export default async function MonitorDetailsPage({
     include: {
       checks: {
         orderBy: { createdAt: "desc" },
-        take: 50, // Fetch 50 for good graph history
+        take: 50, 
       }
     }
   });
@@ -42,8 +46,6 @@ export default async function MonitorDetailsPage({
 
   return (
     <div className="min-h-screen bg-gray-50">
-      
-      {/* --- RESTORED NAVBAR --- */}
       <nav className="bg-white border-b border-gray-200 px-6 py-4 flex justify-between items-center sticky top-0 z-40">
         <Link href="/dashboard" className="flex items-center gap-2 font-bold text-xl tracking-tight text-blue-600 hover:opacity-80 transition">
             <Activity size={24} />
@@ -52,7 +54,6 @@ export default async function MonitorDetailsPage({
         <UserDropdown user={user} />
       </nav>
 
-      {/* Main Content */}
       <main>
         <MonitorDetailsClient monitor={monitor} />
       </main>

@@ -1,22 +1,21 @@
-// app/api/cron/route.ts
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { Resend } from 'resend';
 
 const resend = new Resend(process.env.RESEND_API_KEY);
 
+export const dynamic = 'force-dynamic'; // <--- Force this route to never cache
+
 export async function GET(req: Request) {
-  // 1. Security Check: Prevent random people from triggering this
-  // We will set this secret in Vercel later
   const { searchParams } = new URL(req.url);
   const secret = searchParams.get("secret");
 
+  // 1. Security Check
   if (secret !== process.env.CRON_SECRET) {
      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
   try {
-    // 2. Get all Active monitors & their users
     const monitors = await prisma.monitor.findMany({
       where: { active: true },
       select: { 
@@ -27,7 +26,6 @@ export async function GET(req: Request) {
       }
     });
 
-    // 3. Loop through them in parallel
     const results = await Promise.all(
       monitors.map(async (monitor) => {
         const start = Date.now();
@@ -45,7 +43,7 @@ export async function GET(req: Request) {
 
         const latency = Date.now() - start;
 
-        // Save Check
+        // 2. Save History Check (Always)
         await prisma.monitorCheck.create({
             data: {
                 monitorId: monitor.id,
@@ -54,22 +52,24 @@ export async function GET(req: Request) {
             }
         });
 
-        // Update Monitor Status
-        if (monitor.status !== newStatus) {
-            await prisma.monitor.update({
-                where: { id: monitor.id },
-                data: { status: newStatus, lastCheck: new Date() }
-            });
-
-            // SEND ALERT (Only if going DOWN)
-            if (newStatus === "DOWN" && monitor.user.email) {
-                await resend.emails.send({
-                    from: 'onboarding@resend.dev',
-                    to: monitor.user.email,
-                    subject: `🔴 Alert: ${monitor.url} is DOWN`,
-                    html: `<p>Your monitor for <strong>${monitor.url}</strong> is down (Status: ${statusCode}).</p>`
-                });
+        // 3. Update Monitor "Last Checked" (ALWAYS update this!)
+        // We moved this OUTSIDE the "if status changed" block
+        await prisma.monitor.update({
+            where: { id: monitor.id },
+            data: { 
+                status: newStatus, 
+                lastCheck: new Date() // <--- Now updates every 5 mins
             }
+        });
+
+        // 4. Send Alert (Only if status CHANGED to DOWN)
+        if (monitor.status === "UP" && newStatus === "DOWN" && monitor.user.email) {
+            await resend.emails.send({
+                from: 'onboarding@resend.dev',
+                to: monitor.user.email,
+                subject: `🔴 Alert: ${monitor.url} is DOWN`,
+                html: `<p>Your monitor for <strong>${monitor.url}</strong> is down (Status: ${statusCode}).</p>`
+            });
         }
 
         return { id: monitor.id, url: monitor.url, status: newStatus };
