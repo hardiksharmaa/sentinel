@@ -1,5 +1,24 @@
 // prisma/schema.prisma
 
+model StatusPage {
+  id          String    @id @default(cuid())
+  slug        String    @unique // This will be the URL: sentinel.app/status/my-company
+  title       String    // The header text on the page
+  description String?   // Optional subtext
+  
+  // Link to User (Owner)
+  userId      String
+  user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  // Link to Monitors (Which monitors show on this page?)
+  monitors    Monitor[] 
+
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  @@index([userId])
+}
+
 generator client {
   provider = "prisma-client-js"
 }
@@ -20,7 +39,8 @@ model User {
   
   // Our Custom Relations
   monitors      Monitor[] // <-- Don't forget to keep this relation!
-  
+  statusPages   StatusPage[]
+
   createdAt     DateTime  @default(now())
   updatedAt     DateTime  @updatedAt
   stripeCustomerId       String?   @unique
@@ -73,7 +93,8 @@ model Monitor {
   userId      String
   user        User     @relation(fields: [userId], references: [id])
   checks      MonitorCheck[]
-  
+  statusPageId String?
+  statusPage   StatusPage? @relation(fields: [statusPageId], references: [id], onDelete: SetNull)
   // Quick stats for the dashboard
   lastCheck   DateTime?
   status      String   @default("UP") // "UP" or "DOWN"
