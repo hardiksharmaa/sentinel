@@ -40,7 +40,7 @@ export async function createMonitor(formData: FormData) {
   }
 }
 
-// --- NEW FUNCTIONS (Fixes your error) ---
+// --- NEW FUNCTIONS ---
 
 // 1. Trigger Manual Check
 export async function triggerCheck(id: string, url: string) {
@@ -61,21 +61,15 @@ export async function triggerCheck(id: string, url: string) {
     status = res.ok ? "UP" : "DOWN";
   } catch (e) {
     status = "DOWN";
-    statusCode = 0; // 0 indicates connection failure
+    statusCode = 0; 
   }
 
   const latency = Date.now() - start;
 
-  // Save to History
   await prisma.monitorCheck.create({
-    data: { 
-        monitorId: id, 
-        statusCode: statusCode, 
-        latency: latency 
-    }
+    data: { monitorId: id, statusCode: statusCode, latency: latency }
   });
   
-  // Update Current Status
   await prisma.monitor.update({
     where: { id },
     data: { status }
@@ -95,4 +89,25 @@ export async function deleteMonitor(id: string) {
   });
 
   revalidatePath("/dashboard");
+}
+
+// 3. Update Profile Image (For the Modal)
+export async function updateProfileImage(base64Image: string | null) {
+  const session = await getServerSession(authOptions);
+  
+  if (!session?.user?.id) return { error: "Unauthorized" };
+
+  try {
+    await prisma.user.update({
+      where: { id: session.user.id },
+      data: { image: base64Image }, // null = delete, string = update
+    });
+
+    revalidatePath("/"); 
+    revalidatePath("/dashboard");
+    return { success: true };
+  } catch (error) {
+    console.error("Profile Image Update Error:", error);
+    return { error: "Failed to update image" };
+  }
 }
