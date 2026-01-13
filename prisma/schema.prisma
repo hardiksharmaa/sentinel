@@ -1,24 +1,3 @@
-// prisma/schema.prisma
-
-model StatusPage {
-  id          String    @id @default(cuid())
-  slug        String    @unique // This will be the URL: sentinel.app/status/my-company
-  title       String    // The header text on the page
-  description String?   // Optional subtext
-  
-  // Link to User (Owner)
-  userId      String
-  user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
-  
-  // Link to Monitors (Which monitors show on this page?)
-  monitors    Monitor[] 
-
-  createdAt   DateTime  @default(now())
-  updatedAt   DateTime  @updatedAt
-
-  @@index([userId])
-}
-
 generator client {
   provider = "prisma-client-js"
 }
@@ -28,6 +7,7 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
+// --- USER MODEL (Updated) ---
 model User {
   id            String    @id @default(cuid())
   name          String?
@@ -38,9 +18,10 @@ model User {
   sessions      Session[]
   
   // Our Custom Relations
-  monitors      Monitor[] // <-- Don't forget to keep this relation!
+  monitors      Monitor[] 
   statusPages   StatusPage[]
-
+  sslMonitors   SSLMonitor[] // <--- NEW: Link to SSL Monitors
+  
   createdAt     DateTime  @default(now())
   updatedAt     DateTime  @updatedAt
   stripeCustomerId       String?   @unique
@@ -49,19 +30,61 @@ model User {
   stripeCurrentPeriodEnd DateTime?
 }
 
-// NECESSARY FOR NEXT-AUTH
+// --- NEW: SSL MONITOR MODEL ---
+model SSLMonitor {
+  id            String    @id @default(cuid())
+  domain        String    // e.g. "sentinel.app" (No https://)
+  
+  // Certificate Details (Populated by our check)
+  issuer        String?   // e.g. "Let's Encrypt", "DigiCert"
+  validFrom     DateTime?
+  validTo       DateTime? // The most important field!
+  daysRemaining Int?      // Cached value for easier querying (e.g. "Show me all < 7 days")
+
+  // Status tracking
+  status        String    @default("HEALTHY") // "HEALTHY", "EXPIRING", "EXPIRED", "ERROR"
+  error         String?   // Stores error message if connection fails
+
+  lastCheck     DateTime  @default(now())
+
+  // Link to User
+  userId        String
+  user          User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  @@index([userId])
+}
+
+// --- EXISTING MODELS (Unchanged) ---
+
+model StatusPage {
+  id          String    @id @default(cuid())
+  slug        String    @unique 
+  title       String    
+  description String?
+  userId      String
+  user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  monitors    Monitor[] 
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  @@index([userId])
+}
+
 model Account {
   id                 String  @id @default(cuid())
   userId             String
   type               String
   provider           String
   providerAccountId  String
-  refresh_token      String?  @db.Text
-  access_token       String?  @db.Text
+  refresh_token      String? @db.Text
+  access_token       String? @db.Text
   expires_at         Int?
   token_type         String?
   scope              String?
-  id_token           String?  @db.Text
+  id_token           String? @db.Text
   session_state      String?
 
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
@@ -95,9 +118,8 @@ model Monitor {
   checks      MonitorCheck[]
   statusPageId String?
   statusPage   StatusPage? @relation(fields: [statusPageId], references: [id], onDelete: SetNull)
-  // Quick stats for the dashboard
   lastCheck   DateTime?
-  status      String   @default("UP") // "UP" or "DOWN"
+  status      String   @default("UP") 
 
   createdAt   DateTime @default(now())
 }
@@ -106,11 +128,9 @@ model MonitorCheck {
   id          String   @id @default(cuid())
   monitorId   String
   monitor     Monitor  @relation(fields: [monitorId], references: [id], onDelete: Cascade)
-  
-  statusCode  Int      // e.g., 200, 404, 500
-  latency     Int      // Response time in ms
-  
+  statusCode  Int      
+  latency     Int      
   createdAt   DateTime @default(now())
 
-  @@index([monitorId]) // optimization for faster queries
+  @@index([monitorId]) 
 }

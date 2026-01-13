@@ -6,7 +6,7 @@ import Link from "next/link";
 import { ExternalLink } from "lucide-react";
 import CreatePageModal from "./create-modal";
 import DeleteButton from "./delete-button";
-import Navbar from "@/components/navbar"; // <--- Use the shared Navbar
+import Navbar from "@/components/navbar";
 
 export default async function StatusPagesDashboard() {
   const session = await getServerSession(authOptions);
@@ -33,15 +33,14 @@ export default async function StatusPagesDashboard() {
   return (
     <div className="min-h-screen bg-gray-50 pb-20">
       
-      {/* 1. GLOBAL NAVBAR (Consistent with Dashboard) */}
+      {/* 1. GLOBAL NAVBAR */}
       <Navbar user={user} />
 
       <main className="max-w-5xl mx-auto mt-10 px-6">
         
-        {/* 2. NAVIGATION TABS (Fixed Position) */}
+        {/* 2. NAVIGATION TABS */}
         <div className="mb-8 border-b border-gray-200">
             <div className="flex gap-8">
-                {/* Monitors Tab (Inactive) */}
                 <Link 
                     href="/dashboard" 
                     className="pb-3 border-b-2 border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300 font-medium text-sm transition"
@@ -49,12 +48,19 @@ export default async function StatusPagesDashboard() {
                     Monitors
                 </Link>
                 
-                {/* Status Pages Tab (Active - Blue Underline) */}
+                {/* Active Tab */}
                 <Link 
                     href="/dashboard/status-pages" 
                     className="pb-3 border-b-2 border-blue-600 text-blue-600 font-medium text-sm"
                 >
                     Status Pages
+                </Link>
+
+                <Link 
+                    href="/dashboard/ssl" 
+                    className="pb-3 border-b-2 border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300 font-medium text-sm transition"
+                >
+                    SSL Certificates
                 </Link>
             </div>
         </div>
