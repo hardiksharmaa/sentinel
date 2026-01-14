@@ -7,8 +7,7 @@ import { Activity } from "lucide-react";
 import UserDropdown from "../user-dropdown";
 import MonitorDetailsClient from "@/components/monitor-details-client";
 
-// --- FIX: FORCE DYNAMIC RENDERING ---
-// This tells Next.js: "Never cache this page. Fetch fresh DB data on every reload."
+// FORCE DYNAMIC: Never cache this page to ensure live data
 export const dynamic = "force-dynamic"; 
 
 export default async function MonitorDetailsPage({ 
@@ -28,16 +27,21 @@ export default async function MonitorDetailsPage({
 
   if (!user) redirect("/login");
 
-  // 2. Fetch Monitor Data
+  // 2. Fetch Monitor Data + TOTAL COUNT
   const monitor = await prisma.monitor.findFirst({
     where: { 
       id: id, 
       userId: user.id 
     },
     include: {
+      // Get the last 50 checks for the chart
       checks: {
         orderBy: { createdAt: "desc" },
         take: 50, 
+      },
+      // Get the TOTAL number of checks (aggregated count)
+      _count: {
+        select: { checks: true }
       }
     }
   });
@@ -55,7 +59,11 @@ export default async function MonitorDetailsPage({
       </nav>
 
       <main>
-        <MonitorDetailsClient monitor={monitor} />
+        {/* Pass the real count explicitly to the client */}
+        <MonitorDetailsClient 
+          monitor={monitor} 
+          totalChecks={monitor._count.checks} 
+        />
       </main>
     </div>
   );
