@@ -60,7 +60,7 @@ const EarthCanvas: React.FC = () => {
           <OrbitControls
             ref={controlsRef}
             autoRotate
-            autoRotateSpeed={1.2}
+            autoRotateSpeed={4}
             enableZoom={false}
             enablePan={false}
             maxPolarAngle={Math.PI / 2}
