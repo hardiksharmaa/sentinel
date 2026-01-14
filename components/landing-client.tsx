@@ -1,11 +1,10 @@
 "use client";
 
 import Link from "next/link";
-import { Zap, Shield, ArrowRight, BarChart3, X, Activity } from "lucide-react";
+import { Zap, Bell, ArrowRight, BarChart3, X, Activity, Lock, Globe } from "lucide-react";
 import { useState } from "react";
 import { Session } from "next-auth";
 
-// Note: Session is passed down but mostly handled by the parent Navbar now
 export default function LandingClient({ session }: { session: Session | null }) {
   const [showPrivacy, setShowPrivacy] = useState(false);
   const [showTerms, setShowTerms] = useState(false);
@@ -19,7 +18,7 @@ export default function LandingClient({ session }: { session: Session | null }) 
   return (
     <div className="bg-white text-gray-900 font-sans selection:bg-blue-100">
       
-      {/* 1. Hero Section (Nav is now external) */}
+      {/* 1. Hero Section */}
       <section className="relative pt-20 pb-32 overflow-hidden">
         <div className="max-w-4xl mx-auto px-6 text-center relative z-10">
           <div className="inline-flex items-center gap-2 bg-blue-50 text-blue-700 px-3 py-1 rounded-full text-xs font-bold mb-6 border border-blue-100 uppercase tracking-wide">
@@ -33,7 +32,7 @@ export default function LandingClient({ session }: { session: Session | null }) 
           </h1>
           
           <p className="text-xl text-gray-500 mb-10 max-w-2xl mx-auto leading-relaxed">
-            Monitor your websites, APIs, and servers 24/7. Get instant alerts via email when something breaks, so you can fix it before your customers notice.
+            Monitor your websites, SSL certificates, and APIs 24/7. Get instant alerts and showcase your uptime with public status pages.
           </p>
           
           <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
@@ -65,7 +64,10 @@ export default function LandingClient({ session }: { session: Session | null }) 
             <p className="text-gray-500">Simple, powerful, and effective monitoring tools.</p>
           </div>
 
-          <div className="grid md:grid-cols-3 gap-8">
+          {/* Grid Layout: 3 Columns on Desktop */}
+          <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-8">
+            
+            {/* Feature 1: Uptime */}
             <div className="bg-white p-8 rounded-2xl border border-gray-100 shadow-sm hover:shadow-md transition">
               <div className="w-12 h-12 bg-blue-100 text-blue-600 rounded-lg flex items-center justify-center mb-6">
                 <Zap size={24} />
@@ -75,15 +77,19 @@ export default function LandingClient({ session }: { session: Session | null }) 
                 We ping your website every 5 minutes from our global network to ensure it's accessible to everyone.
               </p>
             </div>
+
+            {/* Feature 2: Alerts */}
             <div className="bg-white p-8 rounded-2xl border border-gray-100 shadow-sm hover:shadow-md transition">
-              <div className="w-12 h-12 bg-green-100 text-green-600 rounded-lg flex items-center justify-center mb-6">
-                <Shield size={24} />
+              <div className="w-12 h-12 bg-red-100 text-red-600 rounded-lg flex items-center justify-center mb-6">
+                <Bell size={24} />
               </div>
               <h3 className="text-xl font-bold mb-3">Instant Alerts</h3>
               <p className="text-gray-500 leading-relaxed">
                 Receive an email the second your site goes down. We filter out false positives so you only get alerted when it matters.
               </p>
             </div>
+
+            {/* Feature 3: Analytics */}
             <div className="bg-white p-8 rounded-2xl border border-gray-100 shadow-sm hover:shadow-md transition">
               <div className="w-12 h-12 bg-purple-100 text-purple-600 rounded-lg flex items-center justify-center mb-6">
                 <BarChart3 size={24} />
@@ -93,6 +99,40 @@ export default function LandingClient({ session }: { session: Session | null }) 
                 Visualize your response times with beautiful charts. Spot slow-loading pages before they affect your SEO.
               </p>
             </div>
+
+            {/* Feature 4: SSL Monitoring (New) */}
+            <div className="bg-white p-8 rounded-2xl border border-gray-100 shadow-sm hover:shadow-md transition">
+              <div className="w-12 h-12 bg-green-100 text-green-600 rounded-lg flex items-center justify-center mb-6">
+                <Lock size={24} />
+              </div>
+              <h3 className="text-xl font-bold mb-3">SSL Monitoring</h3>
+              <p className="text-gray-500 leading-relaxed">
+                Never let your certificate expire. We track your SSL validity and alert you 7 days before it expires.
+              </p>
+            </div>
+
+            {/* Feature 5: Status Pages (New) */}
+            <div className="bg-white p-8 rounded-2xl border border-gray-100 shadow-sm hover:shadow-md transition">
+              <div className="w-12 h-12 bg-orange-100 text-orange-600 rounded-lg flex items-center justify-center mb-6">
+                <Globe size={24} />
+              </div>
+              <h3 className="text-xl font-bold mb-3">Public Status Pages</h3>
+              <p className="text-gray-500 leading-relaxed">
+                Build trust with your customers. Create a beautiful, branded status page to showcase your uptime history.
+              </p>
+            </div>
+
+             {/* Feature 6: Team Collaboration (Filler for symmetry) */}
+             <div className="bg-white p-8 rounded-2xl border border-gray-100 shadow-sm hover:shadow-md transition">
+              <div className="w-12 h-12 bg-gray-100 text-gray-600 rounded-lg flex items-center justify-center mb-6">
+                <Activity size={24} />
+              </div>
+              <h3 className="text-xl font-bold mb-3">Reliable History</h3>
+              <p className="text-gray-500 leading-relaxed">
+                Keep a permanent record of your incidents and response times to help your team improve reliability.
+              </p>
+            </div>
+
           </div>
         </div>
       </section>

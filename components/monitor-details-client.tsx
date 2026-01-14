@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { Play, Trash2, ArrowLeft, Clock, Activity, CheckCircle2, Wifi, Loader2, AlertTriangle } from "lucide-react";
+import { Play, Trash2, ArrowLeft, Clock, Activity, CheckCircle2, Wifi, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 import { triggerCheck, deleteMonitor } from "@/app/dashboard/actions"; 
 import Link from "next/link";
@@ -23,7 +23,12 @@ interface Monitor {
   checks: Check[];
 }
 
-export default function MonitorDetailsClient({ monitor }: { monitor: Monitor }) {
+interface MonitorDetailsClientProps {
+  monitor: Monitor;
+  totalChecks: number; // <--- ADDED THIS PROP
+}
+
+export default function MonitorDetailsClient({ monitor, totalChecks }: MonitorDetailsClientProps) {
   const [loading, setLoading] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
   const router = useRouter();
@@ -48,14 +53,16 @@ export default function MonitorDetailsClient({ monitor }: { monitor: Monitor }) 
 
   // --- STATS ---
   const checks = monitor.checks || [];
-  const totalChecks = checks.length;
   
-  const avgLatency = totalChecks > 0 
-    ? Math.round(checks.reduce((acc, c) => acc + c.latency, 0) / totalChecks) 
+  // We use the 'local' count for averages to ensure math is correct based on the fetched data (50 items)
+  const recentCount = checks.length;
+  
+  const avgLatency = recentCount > 0 
+    ? Math.round(checks.reduce((acc, c) => acc + c.latency, 0) / recentCount) 
     : 0;
 
   const successCount = checks.filter(c => c.statusCode >= 200 && c.statusCode < 300).length;
-  const uptime = totalChecks > 0 ? Math.round((successCount / totalChecks) * 100) : 100;
+  const uptime = recentCount > 0 ? Math.round((successCount / recentCount) * 100) : 100;
 
   // --- GRAPH DATA ---
   // We take the last 20 checks and reverse them so they flow Left -> Right (Oldest -> Newest)
@@ -201,13 +208,14 @@ export default function MonitorDetailsClient({ monitor }: { monitor: Monitor }) 
                 </div>
                 <div className="text-right">
                     <p className="text-xs font-semibold text-gray-500 uppercase mb-1">Total Checks</p>
-                    <p className="text-xl font-bold text-gray-900">{totalChecks}</p>
+                    {/* HERE IS THE FIX: Using the real totalChecks prop */}
+                    <p className="text-xl font-bold text-gray-900">{totalChecks.toLocaleString()}</p>
                 </div>
             </div>
         </div>
       </div>
 
-      {/* 3. HISTORY TABLE (Restored) */}
+      {/* 3. HISTORY TABLE */}
       <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
         <div className="px-6 py-4 border-b border-gray-100 bg-gray-50/50">
             <h3 className="text-sm font-semibold text-gray-900">Recent Activity Log</h3>
