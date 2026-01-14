@@ -36,7 +36,7 @@ export default function CreatePageModal({ monitors }: { monitors: Monitor[] }) {
     return (
       <button 
         onClick={() => setIsOpen(true)}
-        className="flex items-center gap-2 bg-blue-600 text-white px-4 py-2 rounded-lg font-medium hover:bg-blue-700 transition"
+        className="bg-black text-white px-4 py-2 rounded-md text-sm font-medium hover:bg-gray-800 transition flex items-center gap-2 cursor-pointer"
       >
         <Plus size={18} /> New Page
       </button>
