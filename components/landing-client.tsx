@@ -60,23 +60,58 @@ export default function LandingClient({ session }: { session: Session | null }) 
               Monitor your websites, SSL certificates, and APIs 24/7. Get instant alerts and showcase your uptime with public status pages.
             </p>
 
-            <div className="flex flex-col sm:flex-row items-center gap-4 justify-center lg:justify-start">
-              <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}>
+            <div className="flex flex-col sm:flex-row items-center gap-6 justify-center lg:justify-start">
+
+              {/* PRIMARY CTA – PILL + ICON */}
+              <motion.div whileHover={{ scale: 1.04 }} whileTap={{ scale: 0.96 }}>
                 <Link
                   href={session ? "/dashboard" : "/login"}
-                  className="px-8 py-4 bg-blue-600 text-white font-bold rounded-lg flex items-center gap-2 shadow-lg shadow-blue-200 hover:bg-blue-700 transition"
+                  className="
+                    group inline-flex items-center gap-4
+                    pl-6 pr-4 py-3.5
+                    rounded-full
+                    bg-gradient-to-r from-blue-600 to-indigo-600
+                    text-white font-semibold
+                    shadow-[0_12px_40px_rgba(59,130,246,0.45)]
+                    transition-all duration-300
+                    hover:shadow-[0_20px_60px_rgba(59,130,246,0.65)]
+                  "
                 >
-                  Start Monitoring Free <ArrowRight size={18} />
+                  <span>Start monitoring free</span>
+
+                  {/* ICON CHIP */}
+                  <span
+                    className="
+                      flex items-center justify-center
+                      w-9 h-9 rounded-full
+                      bg-white/20
+                      backdrop-blur
+                      transition-transform duration-300
+                      group-hover:translate-x-1
+                    "
+                  >
+                    <ArrowRight size={18} />
+                  </span>
                 </Link>
               </motion.div>
 
-              <a
-                href="#features"
-                onClick={scrollToFeatures}
-                className="px-8 py-4 bg-gray-100 text-gray-700 font-bold rounded-lg hover:bg-gray-200 transition"
-              >
-                How it works
-              </a>
+              {/* SECONDARY CTA – INLINE TEXT */}
+              <motion.div whileHover={{ x: 2 }}>
+                <a
+                  href="#features"
+                  onClick={scrollToFeatures}
+                  className="
+                    inline-flex items-center gap-2
+                    text-gray-600 font-medium
+                    hover:text-blue-600
+                    transition
+                  "
+                >
+                  How it works
+                  <ArrowRight size={14} className="-rotate-45" />
+                </a>
+              </motion.div>
+
             </div>
           </motion.div>
 
