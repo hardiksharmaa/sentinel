@@ -6,7 +6,6 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { revalidatePath } from "next/cache";
 
-// --- EXISTING CREATE FUNCTION ---
 const MonitorSchema = z.object({
   name: z.string().min(1, "Name is required").max(50),
   url: z.string().url("Must be a valid URL (e.g., https://google.com)"),
@@ -40,9 +39,6 @@ export async function createMonitor(formData: FormData) {
   }
 }
 
-// --- NEW FUNCTIONS ---
-
-// 1. Trigger Manual Check
 export async function triggerCheck(id: string, url: string) {
   const session = await getServerSession(authOptions);
   if (!session) return { error: "Unauthorized" };
@@ -72,13 +68,16 @@ export async function triggerCheck(id: string, url: string) {
   
   await prisma.monitor.update({
     where: { id },
-    data: { status }
+    data: { 
+      status,
+      lastCheck: new Date(),
+      totalChecks: { increment: 1 }
+    }
   });
 
   revalidatePath(`/dashboard/${id}`);
 }
 
-// 2. Delete Monitor
 export async function deleteMonitor(id: string) {
   const session = await getServerSession(authOptions);
   const user = session?.user as { id: string } | undefined;
@@ -91,7 +90,6 @@ export async function deleteMonitor(id: string) {
   revalidatePath("/dashboard");
 }
 
-// 3. Update Profile Image (For the Modal)
 export async function updateProfileImage(base64Image: string | null) {
   const session = await getServerSession(authOptions);
   
@@ -100,7 +98,7 @@ export async function updateProfileImage(base64Image: string | null) {
   try {
     await prisma.user.update({
       where: { id: session.user.id },
-      data: { image: base64Image }, // null = delete, string = update
+      data: { image: base64Image }, 
     });
 
     revalidatePath("/"); 

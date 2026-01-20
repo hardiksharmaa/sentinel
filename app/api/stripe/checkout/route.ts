@@ -15,7 +15,6 @@ export async function POST(req: Request) {
 
     if (!user) return new NextResponse("User not found", { status: 404 });
 
-    // 1. If user already has a Stripe ID, use it. Otherwise create one.
     let customerId = user.stripeCustomerId;
 
     if (!customerId) {
@@ -26,14 +25,12 @@ export async function POST(req: Request) {
       });
       customerId = customer.id;
       
-      // Save it immediately so we don't create duplicates
       await prisma.user.update({
         where: { id: user.id },
         data: { stripeCustomerId: customerId },
       });
     }
 
-    // 2. Create the Checkout Session
     const stripeSession = await stripe.checkout.sessions.create({
       success_url: `${process.env.NEXT_PUBLIC_URL}/dashboard/settings/billing`,
       cancel_url: `${process.env.NEXT_PUBLIC_URL}/dashboard/settings/billing`,
