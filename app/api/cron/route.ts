@@ -1,9 +1,18 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { SQSClient, SendMessageBatchCommand } from "@aws-sdk/client-sqs";
 import { Resend } from "resend";
 import tls from "tls";
 
 export const dynamic = 'force-dynamic';
+
+const sqs = new SQSClient({
+  region: process.env.AWS_REGION,
+  credentials: {
+    accessKeyId: process.env.AWS_ACCESS_KEY_ID!,
+    secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY!,
+  },
+});
 
 const resend = new Resend(process.env.RESEND_API_KEY);
 
@@ -53,90 +62,42 @@ async function getCertificateDetails(domain: string) {
 
 export async function GET(req: Request) {
   const { searchParams } = new URL(req.url);
-  const secret = searchParams.get("secret");
-
-  if (secret !== process.env.CRON_SECRET) {
+  if (searchParams.get("secret") !== process.env.CRON_SECRET) {
      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
   try {
     const monitors = await prisma.monitor.findMany({
       where: { active: true },
-      select: { 
-        id: true, 
-        url: true, 
-        name: true,
-        status: true, 
-        user: { select: { email: true } } 
-      }
+      select: { id: true, url: true }
     });
 
-    const uptimeResults = await Promise.all(
-      monitors.map(async (monitor) => {
-        const start = Date.now();
-        let newStatus = "UP";
-        let statusCode = 200;
-
-        try {
-            const response = await fetch(monitor.url, { 
-                method: "HEAD", 
-                cache: 'no-store',
-                signal: AbortSignal.timeout(5000) 
-            });
-            statusCode = response.status;
-            if (response.status >= 400) newStatus = "DOWN";
-        } catch (error) {
-            newStatus = "DOWN";
-            statusCode = 500;
+    if (monitors.length > 0) {
+        const batchSize = 10;
+        for (let i = 0; i < monitors.length; i += batchSize) {
+            const batch = monitors.slice(i, i + batchSize);
+            const entries = batch.map((monitor) => ({
+                Id: monitor.id,
+                MessageBody: JSON.stringify({ 
+                    monitorId: monitor.id, 
+                    url: monitor.url 
+                }),
+            }));
+            await sqs.send(new SendMessageBatchCommand({
+                QueueUrl: process.env.AWS_SQS_QUEUE_URL,
+                Entries: entries,
+            }));
         }
-
-        const latency = Date.now() - start;
-
-        await prisma.monitorCheck.create({
-            data: {
-                monitorId: monitor.id,
-                statusCode: statusCode,
-                latency: latency
-            }
-        });
-
-        await prisma.monitor.update({
-            where: { id: monitor.id },
-            data: { 
-                status: newStatus, 
-                lastCheck: new Date(),
-                totalChecks: { increment: 1 }
-            }
-        });
-
-        if (monitor.status === "UP" && newStatus === "DOWN" && monitor.user.email) {
-            await resend.emails.send({
-                from: 'Sentinel <onboarding@resend.dev>',
-                to: monitor.user.email,
-                subject: `🔴 Alert: ${monitor.name || monitor.url} is DOWN`,
-                html: `<p>Your monitor for <strong>${monitor.url}</strong> is down (Status: ${statusCode}).</p>`
-            });
-        }
-
-        return { id: monitor.id, status: newStatus };
-      })
-    );
+    }
 
     const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
     await prisma.monitorCheck.deleteMany({
-      where: {
-        createdAt: {
-          lt: sevenDaysAgo
-        }
-      }
+      where: { createdAt: { lt: sevenDaysAgo } }
     });
 
     const yesterday = new Date(Date.now() - 24 * 60 * 60 * 1000);
-    
     const sslMonitors = await prisma.sSLMonitor.findMany({
-      where: {
-        lastCheck: { lt: yesterday }
-      },
+      where: { lastCheck: { lt: yesterday } },
       include: { user: true }
     });
 
@@ -174,13 +135,13 @@ export async function GET(req: Request) {
                 `,
               });
             }
-            return { id: ssl.id, days: details.daysRemaining };
+            return { id: ssl.id, status };
         })
     );
 
     return NextResponse.json({ 
         success: true, 
-        monitorsChecked: uptimeResults.length, 
+        queued: monitors.length,
         sslChecked: sslResults.length 
     });
 
