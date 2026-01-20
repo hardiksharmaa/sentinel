@@ -11,7 +11,6 @@ export async function POST(req: Request) {
 
   let event: Stripe.Event;
 
-  // 1. Verify Signature
   try {
     event = stripe.webhooks.constructEvent(
       body,
@@ -22,12 +21,9 @@ export async function POST(req: Request) {
     console.error(`❌ Webhook Signature Error: ${error.message}`);
     return new NextResponse(`Webhook Error: ${error.message}`, { status: 400 });
   }
-
-  // 2. Handle Events
   try {
     const session = event.data.object as Stripe.Checkout.Session;
 
-    // EVENT: CHECKOUT COMPLETED
     if (event.type === "checkout.session.completed") {
       if (!session?.metadata?.userId) {
         console.error("❌ Metadata missing User ID. Cannot link subscription.");
@@ -36,37 +32,31 @@ export async function POST(req: Request) {
 
       console.log(`✅ Payment received for User: ${session.metadata.userId}`);
 
-      // Fetch Subscription
+
       const subscription = await stripe.subscriptions.retrieve(
         session.subscription as string
       );
 
-      // --- ROBUST DATE HANDLING (Fixes your 500 Error) ---
-      // We check if the field exists. If not, default to 30 days from now.
       let periodEnd = (subscription as any).current_period_end;
 
       if (!periodEnd) {
         console.warn("⚠️ Warning: Stripe did not return current_period_end. Defaulting to 30 days.");
-        // Fallback: Current time + 30 days (in seconds)
         periodEnd = Math.floor(Date.now() / 1000) + 30 * 24 * 60 * 60;
       }
-      // ---------------------------------------------------
 
-      // Update Database
       await prisma.user.update({
         where: { id: session.metadata.userId },
         data: {
           stripeSubscriptionId: subscription.id,
           stripeCustomerId: subscription.customer as string,
           stripePriceId: subscription.items.data[0].price.id,
-          stripeCurrentPeriodEnd: new Date(periodEnd * 1000), // Now guaranteed to be valid
+          stripeCurrentPeriodEnd: new Date(periodEnd * 1000),
         },
       });
 
       console.log(`🎉 User ${session.metadata.userId} upgraded to Pro!`);
     }
 
-    // EVENT: SUBSCRIPTION DELETED
     if (event.type === "customer.subscription.deleted") {
       const subscription = event.data.object as Stripe.Subscription;
       

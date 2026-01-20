@@ -3,7 +3,7 @@
 import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid } from 'recharts';
 
 export default function LatencyChart({ checks }: { checks: any[] }) {
-  // 1. Format data for the chart (Reverse so newest is on right, format time)
+
   const data = [...checks].reverse().map(check => ({
     time: new Date(check.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
     latency: check.latency,

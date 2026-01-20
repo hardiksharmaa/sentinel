@@ -3,11 +3,10 @@ import { prisma } from "@/lib/prisma";
 import { Resend } from "resend";
 import tls from "tls";
 
-export const dynamic = 'force-dynamic'; // Force no-cache
+export const dynamic = 'force-dynamic';
 
 const resend = new Resend(process.env.RESEND_API_KEY);
 
-// --- HELPER: SSL Check Logic ---
 async function getCertificateDetails(domain: string) {
   return new Promise<{
     issuer: string;
@@ -20,7 +19,7 @@ async function getCertificateDetails(domain: string) {
       host: domain,
       port: 443,
       servername: domain,
-      rejectUnauthorized: false, // We just want to read the date
+      rejectUnauthorized: false,
       timeout: 5000,
     };
 
@@ -56,15 +55,11 @@ export async function GET(req: Request) {
   const { searchParams } = new URL(req.url);
   const secret = searchParams.get("secret");
 
-  // 1. Security Check
   if (secret !== process.env.CRON_SECRET) {
      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
   try {
-    // =======================================================
-    // JOB 1: UPTIME MONITORS (Runs every 5 minutes)
-    // =======================================================
     const monitors = await prisma.monitor.findMany({
       where: { active: true },
       select: { 
@@ -97,7 +92,6 @@ export async function GET(req: Request) {
 
         const latency = Date.now() - start;
 
-        // Save History
         await prisma.monitorCheck.create({
             data: {
                 monitorId: monitor.id,
@@ -106,16 +100,15 @@ export async function GET(req: Request) {
             }
         });
 
-        // Update Monitor Status & Last Check
         await prisma.monitor.update({
             where: { id: monitor.id },
             data: { 
                 status: newStatus, 
-                lastCheck: new Date()
+                lastCheck: new Date(),
+                totalChecks: { increment: 1 }
             }
         });
 
-        // Send Alert (Only if status CHANGED to DOWN)
         if (monitor.status === "UP" && newStatus === "DOWN" && monitor.user.email) {
             await resend.emails.send({
                 from: 'Sentinel <onboarding@resend.dev>',
@@ -129,11 +122,15 @@ export async function GET(req: Request) {
       })
     );
 
-    // =======================================================
-    // JOB 2: SSL MONITORING (Runs once per day per domain)
-    // =======================================================
-    
-    // Find SSL monitors not checked in the last 24 hours
+    const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
+    await prisma.monitorCheck.deleteMany({
+      where: {
+        createdAt: {
+          lt: sevenDaysAgo
+        }
+      }
+    });
+
     const yesterday = new Date(Date.now() - 24 * 60 * 60 * 1000);
     
     const sslMonitors = await prisma.sSLMonitor.findMany({
@@ -152,7 +149,6 @@ export async function GET(req: Request) {
             else if (details.daysRemaining < 3) status = "EXPIRED";
             else if (details.daysRemaining < 7) status = "EXPIRING";
       
-            // Update Database
             await prisma.sSLMonitor.update({
               where: { id: ssl.id },
               data: {
@@ -162,11 +158,10 @@ export async function GET(req: Request) {
                 validFrom: details.validFrom,
                 status: status,
                 error: details.error,
-                lastCheck: new Date(), // Reset the 24h timer
+                lastCheck: new Date(), 
               },
             });
       
-            // Alert if SSL is Expiring (and user has email)
             if ((status === "EXPIRING" || status === "EXPIRED") && ssl.user.email) {
               await resend.emails.send({
                 from: "Sentinel <onboarding@resend.dev>",
