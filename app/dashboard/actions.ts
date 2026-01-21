@@ -5,6 +5,7 @@ import { prisma } from "@/lib/prisma";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { revalidatePath } from "next/cache";
+import { invalidateCache } from "@/lib/redis"; 
 
 const MonitorSchema = z.object({
   name: z.string().min(1, "Name is required").max(50),
@@ -32,6 +33,9 @@ export async function createMonitor(formData: FormData) {
         status: "UP",
       },
     });
+
+    await invalidateCache(`dashboard:monitors:${user.id}`);
+
     revalidatePath("/dashboard");
     return { success: true };
   } catch (error) {
@@ -41,7 +45,7 @@ export async function createMonitor(formData: FormData) {
 
 export async function triggerCheck(id: string, url: string) {
   const session = await getServerSession(authOptions);
-  if (!session) return { error: "Unauthorized" };
+  if (!session?.user?.id) return { error: "Unauthorized" };
 
   const start = Date.now();
   let status = "DOWN";
@@ -75,6 +79,9 @@ export async function triggerCheck(id: string, url: string) {
     }
   });
 
+  await invalidateCache(`dashboard:monitors:${session.user.id}`);
+  await invalidateCache(`dashboard:monitor:${id}`);
+
   revalidatePath(`/dashboard/${id}`);
 }
 
@@ -86,6 +93,8 @@ export async function deleteMonitor(id: string) {
   await prisma.monitor.delete({
     where: { id, userId: user.id },
   });
+
+  await invalidateCache(`dashboard:monitors:${user.id}`);
 
   revalidatePath("/dashboard");
 }
@@ -100,6 +109,8 @@ export async function updateProfileImage(base64Image: string | null) {
       where: { id: session.user.id },
       data: { image: base64Image }, 
     });
+
+    await invalidateCache(`user_profile:${session.user.id}`);
 
     revalidatePath("/"); 
     revalidatePath("/dashboard");
