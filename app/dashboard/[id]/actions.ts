@@ -6,18 +6,17 @@ import { prisma } from "@/lib/prisma";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { Resend } from 'resend';
+import { invalidateCache } from "@/lib/redis";
 
 const resend = new Resend(process.env.RESEND_API_KEY);
 
 export async function triggerCheck(monitorId: string, url: string) {
   const session = await getServerSession(authOptions);
   
-  // FORCE FIX: Manually tell TypeScript that 'id' exists
   const user = session?.user as { id: string; email?: string } | undefined;
 
   if (!user?.id) return { error: "Unauthorized" };
 
-  // 1. Get the current status BEFORE checking
   const monitor = await prisma.monitor.findUnique({
     where: { id: monitorId },
     select: { status: true, user: { select: { email: true } } }
@@ -25,7 +24,6 @@ export async function triggerCheck(monitorId: string, url: string) {
 
   if (!monitor) return { error: "Monitor not found" };
 
-  // 2. Perform the Check
   const start = Date.now();
   let newStatus = "UP";
   let statusCode = 200;
@@ -41,7 +39,6 @@ export async function triggerCheck(monitorId: string, url: string) {
 
   const latency = Date.now() - start;
 
-  // 3. Save to History
   await prisma.monitorCheck.create({
     data: {
       monitorId,
@@ -50,7 +47,6 @@ export async function triggerCheck(monitorId: string, url: string) {
     },
   });
 
-  // 4. Update Monitor Status
   await prisma.monitor.update({
     where: { id: monitorId },
     data: { 
@@ -59,7 +55,6 @@ export async function triggerCheck(monitorId: string, url: string) {
     },
   });
 
-  // 5. SEND ALERT? (Only if status changed from UP -> DOWN)
   if (monitor.status === "UP" && newStatus === "DOWN" && monitor.user.email) {
     console.log("⚠️ Site went down! Sending email...");
     
@@ -75,18 +70,19 @@ export async function triggerCheck(monitorId: string, url: string) {
     });
   }
 
+  await invalidateCache(`dashboard:monitor:${monitorId}`);
+  await invalidateCache(`dashboard:monitors:${user.id}`);
+
   revalidatePath(`/dashboard/${monitorId}`);
 }
 
 export async function deleteMonitor(monitorId: string) {
   const session = await getServerSession(authOptions);
   
-  // FORCE FIX: Manually tell TypeScript that 'id' exists
   const user = session?.user as { id: string } | undefined;
   
   if (!user?.id) return { error: "Unauthorized" };
 
-  // Verify ownership before deleting
   const monitor = await prisma.monitor.findFirst({
     where: { id: monitorId, userId: user.id }
   });
@@ -96,6 +92,9 @@ export async function deleteMonitor(monitorId: string) {
   await prisma.monitor.delete({
     where: { id: monitorId }
   });
+
+  await invalidateCache(`dashboard:monitors:${user.id}`);
+  await invalidateCache(`dashboard:monitor:${monitorId}`);
 
   redirect("/dashboard");
 }

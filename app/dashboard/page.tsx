@@ -5,6 +5,7 @@ import { prisma } from "@/lib/prisma";
 import MonitorForm from "./monitor-form";
 import Link from "next/link";
 import Navbar from "@/components/navbar";
+import { getCachedData, DB_CACHE_TTL, getCachedUser } from "@/lib/redis";
 
 export default async function Dashboard() {
   const session = await getServerSession(authOptions);
@@ -13,37 +14,38 @@ export default async function Dashboard() {
     redirect("/login"); 
   }
 
-  // Fetch Fresh User Data
-  const freshUser = await prisma.user.findUnique({
-    where: { id: session.user.id }
-  });
+  const freshUser = await getCachedUser(session.user.id);
 
   if (!freshUser) redirect("/login");
+  
+  const cacheKey = `dashboard:monitors:${session.user.id}`;
 
-  const monitors = await prisma.monitor.findMany({
-    where: { userId: session.user.id },
-    orderBy: { createdAt: "desc" },
-    include: { 
-      checks: { 
-        take: 20,
-        orderBy: { createdAt: "desc" } 
-      } 
-    } 
-  });
+  const monitors = await getCachedData(
+    cacheKey,
+    async () => {
+      return await prisma.monitor.findMany({
+        where: { userId: session.user.id },
+        orderBy: { createdAt: "desc" },
+        include: { 
+          checks: { 
+            take: 20,
+            orderBy: { createdAt: "desc" } 
+          } 
+        } 
+      });
+    },
+    DB_CACHE_TTL 
+  );
 
   return (
     <div className="min-h-screen bg-gray-50 pb-20">
       
-      {/* GLOBAL NAVBAR */}
       <Navbar user={freshUser} />
 
-      {/* Main Content */}
       <main className="max-w-5xl mx-auto mt-10 px-6">
         
-        {/* --- DASHBOARD TABS --- */}
         <div className="mb-8 border-b border-gray-200">
             <div className="flex gap-8">
-                {/* Active Tab */}
                 <Link 
                     href="/dashboard" 
                     className="pb-3 border-b-2 border-blue-600 text-blue-600 font-medium text-sm"
@@ -64,14 +66,12 @@ export default async function Dashboard() {
                 </Link>
             </div>
         </div>
-        {/* --------------------------- */}
 
         <div className="flex justify-between items-center mb-8">
             <h1 className="text-2xl font-bold text-gray-900">Your Monitors</h1>
             <MonitorForm />
         </div>
 
-        {/* List of Monitors */}
         {monitors.length === 0 ? (
             <div className="bg-white rounded-lg border border-dashed border-gray-300 p-12 text-center">
                 <p className="text-gray-500 mb-2">No monitors found.</p>

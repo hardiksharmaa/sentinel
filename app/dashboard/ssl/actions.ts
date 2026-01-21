@@ -5,6 +5,7 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { revalidatePath } from "next/cache";
 import tls from "tls"; 
+import { invalidateCache } from "@/lib/redis"; 
 
 async function getCertificateDetails(domain: string) {
   return new Promise<{
@@ -92,8 +93,8 @@ export async function createSSLMonitor(formData: FormData) {
 
     let status = "HEALTHY";
     if (details.error) status = "ERROR";
-    else if (details.daysRemaining < 3) status = "EXPIRED"; // Critical
-    else if (details.daysRemaining < 14) status = "EXPIRING"; // Warning
+    else if (details.daysRemaining < 3) status = "EXPIRED"; 
+    else if (details.daysRemaining < 14) status = "EXPIRING"; 
 
     await prisma.sSLMonitor.create({
         data: {
@@ -108,11 +109,15 @@ export async function createSSLMonitor(formData: FormData) {
         }
     });
 
+    await invalidateCache(`dashboard:ssl:${session.user.id}`);
+
     revalidatePath("/dashboard/ssl");
     return { success: true };
 }
 
 export async function refreshSSLMonitor(id: string, domain: string) {
+    const session = await getServerSession(authOptions);
+    
     const details = await getCertificateDetails(domain);
     
     let status = "HEALTHY";
@@ -132,6 +137,11 @@ export async function refreshSSLMonitor(id: string, domain: string) {
             lastCheck: new Date()
         }
     });
+
+    if (session?.user?.id) {
+        await invalidateCache(`dashboard:ssl:${session.user.id}`);
+    }
+
     revalidatePath("/dashboard/ssl");
 }
 
@@ -142,5 +152,8 @@ export async function deleteSSLMonitor(id: string) {
     await prisma.sSLMonitor.delete({
         where: { id, userId: session.user.id }
     });
+
+    await invalidateCache(`dashboard:ssl:${session.user.id}`);
+
     revalidatePath("/dashboard/ssl");
 }

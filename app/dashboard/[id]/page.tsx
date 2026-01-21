@@ -6,6 +6,7 @@ import Link from "next/link";
 import { Activity } from "lucide-react";
 import UserDropdown from "../user-dropdown";
 import MonitorDetailsClient from "@/components/monitor-details-client";
+import { getCachedData, DB_CACHE_TTL, getCachedUser } from "@/lib/redis";
 
 export const dynamic = "force-dynamic"; 
 
@@ -19,24 +20,30 @@ export default async function MonitorDetailsPage({
 
   const { id } = await params;
 
-  const user = await prisma.user.findUnique({
-    where: { id: session.user.id }
-  });
+  const user = await getCachedUser(session.user.id);
 
   if (!user) redirect("/login");
 
-  const monitor = await prisma.monitor.findFirst({
-    where: { 
-      id: id, 
-      userId: user.id 
+  const cacheKey = `dashboard:monitor:${id}`;
+
+  const monitor = await getCachedData(
+    cacheKey,
+    async () => {
+      return await prisma.monitor.findFirst({
+        where: { 
+          id: id, 
+          userId: user.id 
+        },
+        include: {
+          checks: {
+            orderBy: { createdAt: "desc" },
+            take: 50, 
+          }
+        }
+      });
     },
-    include: {
-      checks: {
-        orderBy: { createdAt: "desc" },
-        take: 50, 
-      }
-    }
-  });
+    DB_CACHE_TTL
+  );
 
   if (!monitor) return notFound();
 
