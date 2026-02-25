@@ -1,0 +1,27 @@
+services:
+  db:
+    image: postgres:16-alpine
+    restart: always
+    environment:
+      - POSTGRES_USER=sentinel
+      - POSTGRES_PASSWORD=sentinel_password
+      - POSTGRES_DB=sentinel
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    restart: always
+    ports:
+      - "3000:3000"
+    depends_on:
+      - db
+    env_file:
+      - .env.docker
+volumes:
+  postgres_data:
+      
